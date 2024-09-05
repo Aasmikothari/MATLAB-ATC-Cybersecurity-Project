@@ -1,0 +1,124 @@
+% Clear all previous data
+clc;
+clear;
+
+%% Step 1: Simulate Normal Network Traffic
+n_time_steps = 1000;  % Total number of time steps
+normal_traffic = 100 + 20*randn(1, n_time_steps);  % Normal traffic with randomness
+
+% Plot the normal traffic
+figure;
+plot(normal_traffic, 'b');
+title('Simulated Normal Network Traffic');
+xlabel('Time');
+ylabel('Traffic Volume');
+
+%% Step 2: Introduce Anomalous Traffic (e.g., a spike)
+anomaly_start = 500;  % Start of anomaly
+anomaly_duration = 50;  % Duration of the anomaly
+anomaly_intensity = 300;  % How big the anomaly spike is
+
+% Inject the anomaly
+anomalous_traffic = normal_traffic;
+anomalous_traffic(anomaly_start:anomaly_start + anomaly_duration) = ...
+    anomalous_traffic(anomaly_start:anomaly_start + anomaly_duration) + anomaly_intensity;
+
+% Plot the traffic with the anomaly
+figure;
+plot(anomalous_traffic, 'b');
+hold on;
+title('Network Traffic with Anomaly');
+xlabel('Time');
+ylabel('Traffic Volume');
+
+%% Step 3: Dynamic Threshold Using Moving Average
+window_size = 50;  % Window size for the moving average
+moving_avg = movmean(anomalous_traffic, window_size);  % Calculate moving average
+dynamic_threshold = moving_avg + 2*std(normal_traffic);  % Dynamic threshold based on traffic fluctuations
+
+% Plot the moving average and threshold
+plot(moving_avg, 'g', 'LineWidth', 1.5);
+plot(dynamic_threshold, 'r--', 'LineWidth', 1.5);
+legend('Traffic', 'Moving Average', 'Dynamic Threshold');
+hold off;
+
+%% Step 4: Anomaly Detection (Using Dynamic Threshold)
+detected_anomalies = anomalous_traffic > dynamic_threshold;  % Detect where traffic exceeds the dynamic threshold
+
+% Log detected anomalies
+anomaly_indices = find(detected_anomalies);
+anomaly_values = anomalous_traffic(detected_anomalies);
+
+% Display detected anomalies with severity classification
+severe_anomalies = anomaly_values > dynamic_threshold(anomaly_indices) + 50;  % Severe anomalies
+moderate_anomalies = ~severe_anomalies;  % Less severe anomalies
+
+% Plot detected anomalies (severe and moderate)
+figure;
+plot(anomalous_traffic, 'b');
+hold on;
+plot(anomaly_indices(severe_anomalies), anomaly_values(severe_anomalies), 'ro', 'MarkerSize', 8, 'LineWidth', 2);  % Severe anomalies (red)
+plot(anomaly_indices(moderate_anomalies), anomaly_values(moderate_anomalies), 'go', 'MarkerSize', 8, 'LineWidth', 2);  % Moderate anomalies (green)
+title('Detected Anomalies (Moderate and Severe)');
+xlabel('Time');
+ylabel('Traffic Volume');
+legend('Traffic', 'Severe Anomalies', 'Moderate Anomalies');
+hold off;
+
+%% Step 5: Log and Trigger Alerts for Detected Anomalies
+if any(detected_anomalies)
+    disp('Alert: Anomalies detected in the network traffic!');
+    disp('Logging anomalies:');
+    for i = 1:length(anomaly_indices)
+        if severe_anomalies(i)
+            fprintf('Severe Anomaly at Time %d: Traffic = %.2f\n', anomaly_indices(i), anomaly_values(i));
+        else
+            fprintf('Moderate Anomaly at Time %d: Traffic = %.2f\n', anomaly_indices(i), anomaly_values(i));
+        end
+    end
+else
+    disp('No anomalies detected.');
+end
+
+% Simulate flight data and radar data alongside network traffic
+flight_data = 50 + 10*randn(1, n_time_steps); % Simulate flight data (e.g., altitude or speed)
+radar_data = 200 + 30*randn(1, n_time_steps); % Simulate radar data (e.g., plane positions)
+
+% Apply anomaly detection for each system
+flight_anomalies = flight_data > mean(flight_data) + 2*std(flight_data);
+radar_anomalies = radar_data > mean(radar_data) + 2*std(radar_data);
+
+% Combine and log anomalies from all systems
+if any(flight_anomalies)
+    disp('Anomalies detected in flight data!');
+end
+if any(radar_anomalies)
+    disp('Anomalies detected in radar data!');
+end
+
+% Example real-time plot for monitoring network traffic
+figure;
+h = animatedline('Color', 'b');
+axis([0 n_time_steps 0 400]);
+xlabel('Time');
+ylabel('Traffic Volume');
+title('Real-Time Network Traffic Monitoring');
+
+for t = 1:n_time_steps
+    addpoints(h, t, anomalous_traffic(t)); % Real-time update of traffic data
+    drawnow;
+end
+
+% Open a file to log anomalies
+fileID = fopen('anomaly_log.txt', 'w');
+fprintf(fileID, 'Time, Anomaly Type, Value\n');
+
+% Log each anomaly with its type and time
+for i = 1:length(anomaly_indices)
+    if severe_anomalies(i)
+        fprintf(fileID, '%d, Severe, %.2f\n', anomaly_indices(i), anomaly_values(i));
+    else
+        fprintf(fileID, '%d, Moderate, %.2f\n', anomaly_indices(i), anomaly_values(i));
+    end
+end
+fclose(fileID);
